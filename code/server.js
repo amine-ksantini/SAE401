@@ -120,7 +120,9 @@ function killPlayer(socketId, killerName) {
         io.to(gameState.arenaId).emit('player_killed', { message: msg });
     }
     
+    // --- Signaler la mort au joueur pour qu'il entende le son sur son téléphone ---
     io.to(socketId).emit('you_died');
+    io.to(socketId).emit('play_local_sound', 'death');
 }
 
 io.on('connection', (socket) => {
@@ -282,6 +284,8 @@ function updateGameState(dt) {
                 io.to(gameState.arenaId).emit('game_over', { 
                     winnerName: winner ? winner.pseudo : "Etrangement personne" 
                 });
+                // Victoire globale sur l'arène pour tous les spectateurs
+                io.to(gameState.arenaId).emit('play_global_sound', 'victory');
             }
             
             for (const p of playersArr) {
@@ -386,7 +390,8 @@ function updateGameState(dt) {
                 if (getDistanceSq(player.x, player.y, gameState.orbs[i].x, gameState.orbs[i].y) < limOrbs) {
                     gameState.orbs.splice(i, 1);
                     player.score += 1;
-                    setTimeout(spawnOrb, 3000); // Gracefully resolved by status check
+                    io.to(socketId).emit('play_local_sound', 'orb');
+                    setTimeout(spawnOrb, 3000);
                 }
             }
             
@@ -395,6 +400,7 @@ function updateGameState(dt) {
                 if (getDistanceSq(player.x, player.y, gameState.coins[i].x, gameState.coins[i].y) < limCoins) {
                     gameState.coins.splice(i, 1);
                     player.coins += 1;
+                    io.to(socketId).emit('play_local_sound', 'coin');
                     setTimeout(spawnCoin, 5000 + Math.random()*2000); 
                 }
             }
@@ -416,6 +422,7 @@ function updateGameState(dt) {
                         else if (rand < 0.80) player.activeItem = 'Fantôme';
                         else player.activeItem = 'Invincibilité';
                         player.pendingBuffDuration = cost * 1000;
+                        io.to(socketId).emit('play_local_sound', 'chest');
                         setTimeout(() => spawnSpecificChest(type), 3000);
                     }
                 }

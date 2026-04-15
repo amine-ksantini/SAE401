@@ -1,5 +1,13 @@
 const socket = io();
 
+// Écoute des sons personnels envoyés par le serveur (smartphone uniquement)
+socket.on('play_local_sound', (type) => {
+    if (type === 'orb')   AudioManager.playOrb();
+    if (type === 'coin')  AudioManager.playCoin();
+    if (type === 'chest') AudioManager.playChest();
+    if (type === 'death') AudioManager.playDeath();
+});
+
 // UI Elements
 const statusText = document.getElementById('statusText');
 const scoreDisplay = document.getElementById('score-display');
@@ -123,6 +131,8 @@ joinBtn.onclick = async () => {
     
     loginScreen.style.display = 'none';
     gamepad.style.display = 'flex';
+    
+    AudioManager.unlock(); // Débloquer le son du navigateur mobile via l'interaction utilisateur
     
     joystickZone.offsetHeight;
     

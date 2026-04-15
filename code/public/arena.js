@@ -1,5 +1,10 @@
 const socket = io();
 
+// Écoute des sons globaux envoyés par le serveur (arène uniquement)
+socket.on('play_global_sound', (type) => {
+    if (type === 'victory') AudioManager.playVictory();
+});
+
 // Initialisation globale de l'UI TOP 5
 let leaderboardDiv = document.getElementById('leaderboard');
 if (!leaderboardDiv) {
@@ -353,6 +358,7 @@ socket.on('lobby_update', (players) => {
 const btnStart = document.getElementById('btn-start');
 if (btnStart) {
     btnStart.addEventListener('click', async () => {
+        AudioManager.unlock(); // Débloquer l'audio du navigateur sur interaction utilisateur
         try {
             if (document.documentElement.requestFullscreen) {
                 await document.documentElement.requestFullscreen();
@@ -377,18 +383,20 @@ socket.on('countdown_start', (seconds) => {
         cdScreen.style.display = 'flex';
         cdNum.innerText = seconds;
         cdNum.classList.add('pulse-anim');
+        AudioManager.playTick(false); // Premier tick au chargement
         
         let remaining = seconds;
         const interval = setInterval(() => {
             remaining--;
             if (remaining > 0) {
                 cdNum.innerText = remaining;
-                // Force le navigateur à relancer l'animation CSS heartbeat
+                AudioManager.playTick(false);
                 cdNum.classList.remove('pulse-anim');
                 void cdNum.offsetWidth; 
                 cdNum.classList.add('pulse-anim');
             } else if (remaining === 0) {
                 cdNum.innerText = "GO !";
+                AudioManager.playTick(true); // Son final de "GO!"
                 cdNum.classList.remove('pulse-anim');
                 void cdNum.offsetWidth; 
                 cdNum.classList.add('pulse-anim');
@@ -402,6 +410,8 @@ socket.on('countdown_start', (seconds) => {
 socket.on('game_started', () => {
     const lobby = document.getElementById('lobby-screen');
     if (lobby) lobby.style.display = 'none';
+    
+    AudioManager.startBgm(); // Démarrer la musique d'ambiance
     
     const cdScreen = document.getElementById('countdown-screen');
     if (cdScreen) {
