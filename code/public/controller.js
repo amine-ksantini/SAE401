@@ -102,9 +102,20 @@ if (emojiSelector) {
 }
 
 // ---------------------------------------------------------
-// Validation Menu
+// Navigation : Règles → Login
 // ---------------------------------------------------------
-joinBtn.onclick = async () => {
+const nextBtn = document.getElementById('nextBtn');
+if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+        document.getElementById('rulesScreen').style.display = 'none';
+        loginScreen.style.display = 'flex';
+    });
+}
+
+// ---------------------------------------------------------
+// Validation Menu : Login → Gamepad
+// ---------------------------------------------------------
+joinBtn.addEventListener('click', async () => {
     // ⚠️ iOS Safari : unlock DOIT être la toute première instruction, avant tout await
     AudioManager.unlock();
 
@@ -140,7 +151,7 @@ joinBtn.onclick = async () => {
     initJoystick();
     
     socket.emit('register_controller', { pseudo: pseudo, emoji: selectedEmoji });
-};
+});
 
 socket.on('join_error', (message) => {
     // Réaffiche l'écran de connexion si on l'avait caché
