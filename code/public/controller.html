@@ -15,6 +15,76 @@
             touch-action: none; user-select: none; position: fixed;
         }
 
+        /* ===== ÉCRAN DES RÈGLES ===== */
+        #rulesScreen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(160deg, #0a0420 0%, #1a0a3a 50%, #0a1a30 100%);
+            z-index: 2000; display: flex; flex-direction: column;
+            align-items: center; overflow-y: auto;
+            padding: 20px 16px 100px; box-sizing: border-box;
+        }
+        #rulesScreen .rules-logo {
+            width: 180px; margin-bottom: 10px;
+            filter: drop-shadow(0 0 20px rgba(255,150,0,0.5));
+        }
+        #rulesScreen h1 {
+            font-size: 22px; color: #FFD700; text-align: center;
+            text-shadow: 0 0 15px rgba(255,215,0,0.5); margin: 0 0 5px;
+            letter-spacing: 2px; text-transform: uppercase;
+        }
+        #rulesScreen .subtitle {
+            font-size: 13px; color: #9c88ff; margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+        .rule-card {
+            width: 100%; max-width: 420px; background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;
+            padding: 14px 16px; margin-bottom: 14px; box-sizing: border-box;
+            backdrop-filter: blur(4px);
+        }
+        .rule-card h2 {
+            font-size: 15px; margin: 0 0 10px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .rule-card p, .rule-card li {
+            font-size: 13px; color: #ccc; line-height: 1.6; margin: 4px 0;
+        }
+        .rule-card ul { padding-left: 18px; margin: 6px 0; }
+        .chest-row { display: flex; gap: 8px; flex-direction: column; }
+        .chest-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            background: rgba(255,255,255,0.04); border-radius: 10px; padding: 8px;
+        }
+        .chest-icon { font-size: 28px; flex-shrink: 0; }
+        .chest-info { font-size: 12px; color: #ccc; line-height: 1.5; }
+        .chest-info strong { font-size: 13px; }
+        .boost-row { display: flex; flex-direction: column; gap: 8px; }
+        .boost-item {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(255,255,255,0.04); border-radius: 10px; padding: 8px 12px;
+        }
+        .boost-icon { font-size: 26px; }
+        .boost-info { font-size: 12px; color: #ccc; }
+        .boost-info strong { display: block; font-size: 13px; color: #fff; margin-bottom: 1px; }
+        .badge-rare { color: #CD7F32; font-weight: bold; font-size: 11px; }
+        .badge-epic { color: #C0C0C0; font-weight: bold; font-size: 11px; }
+        .badge-legend { color: #FFD700; font-weight: bold; font-size: 11px; }
+        #nextBtn {
+            position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+            padding: 14px 36px; font-size: 17px; font-weight: bold;
+            background: linear-gradient(135deg, #9c88ff, #6c5ce7);
+            color: white; border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 5px 20px rgba(108,92,231,0.6);
+            display: flex; align-items: center; gap: 10px; z-index: 2100;
+            animation: pulse-btn 2s infinite ease-in-out;
+        }
+        @keyframes pulse-btn {
+            0%, 100% { box-shadow: 0 5px 20px rgba(108,92,231,0.6); }
+            50% { box-shadow: 0 5px 35px rgba(108,92,231,1); }
+        }
+        #nextBtn:active { transform: translateX(-50%) scale(0.95); }
+
+        /* ===== LOGIN ===== */
         #loginScreen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background-color: #1a1432; z-index: 1000;
@@ -128,7 +198,102 @@
     </style>
 </head>
 <body>
-    <div id="loginScreen">
+
+    <!-- ======== ÉCRAN DES RÈGLES ======== -->
+    <div id="rulesScreen">
+        <img src="/logo-transparent.png" class="rules-logo" alt="Logo">
+        <h1>Comment Jouer ?</h1>
+        <p class="subtitle">Lis les règles avant de rejoindre !</p>
+
+        <div class="rule-card">
+            <h2>🐍 Le Battle Royale</h2>
+            <p>Tu contrôles un <strong>serpent</strong> qui avance en permanence sur une grande arène. Le dernier serpent en vie remporte la victoire !</p>
+            <ul>
+                <li>Dirige ton serpent avec le <strong>joystick</strong> à gauche de ta manette.</li>
+                <li>Mange des <strong>orbes colorés</strong> pour grossir et augmenter ton score.</li>
+                <li>Plus tu es gros, plus tu es dangereux... et plus tu fais peur !</li>
+            </ul>
+        </div>
+
+        <div class="rule-card">
+            <h2>💀 Comment mourir ?</h2>
+            <ul>
+                <li>🧱 <strong>Le Mur :</strong> Les bords de la carte sont mortels. Ne t'y écrase pas !</li>
+                <li>🐍 <strong>Le Corps d'un adversaire :</strong> Rentrer dans le corps d'un autre serpent te tue instantanément.</li>
+                <li>🤜 <strong>Collision tête-à-tête :</strong> Si deux têtes se percutent, les deux joueurs meurent ensemble.</li>
+            </ul>
+            <p style="color:#ff8080; margin-top:8px;">💡 Astuce : Force tes adversaires à percuter ton corps !</p>
+        </div>
+
+        <div class="rule-card">
+            <h2>🪙 Les Pièces &amp; Coffres</h2>
+            <p>Les <strong>pièces d'or ⊙</strong> qui traînent sur la carte servent à <strong>ouvrir des coffres</strong>. Il y a toujours <strong>3 coffres</strong> sur l'arène :</p>
+            <div class="chest-row">
+                <div class="chest-item">
+                    <div class="chest-icon">🟫</div>
+                    <div class="chest-info">
+                        <strong>Coffre Bronze <span class="badge-rare">COMMUN</span></strong>
+                        Coûte <strong>5 pièces</strong>. Récompense accessible dès le début.
+                    </div>
+                </div>
+                <div class="chest-item">
+                    <div class="chest-icon">⬜</div>
+                    <div class="chest-info">
+                        <strong>Coffre Argent <span class="badge-epic">ÉPIQUE</span></strong>
+                        Coûte <strong>10 pièces</strong>. Bonus de meilleure qualité.
+                    </div>
+                </div>
+                <div class="chest-item">
+                    <div class="chest-icon">🟨</div>
+                    <div class="chest-info">
+                        <strong>Coffre Or <span class="badge-legend">LÉGENDAIRE</span></strong>
+                        Coûte <strong>15 pièces</strong>. Le meilleur bonus possible !
+                    </div>
+                </div>
+            </div>
+            <p style="margin-top:10px; color:#9c88ff;">Un coffre ouvert réapparaît en 3 secondes ailleurs sur la carte.</p>
+        </div>
+
+        <div class="rule-card">
+            <h2>⚡ Les Bonus de Coffres</h2>
+            <p>Chaque coffre donne <strong>un bonus aléatoire</strong> parmi les 3 suivants. Stocke-le, puis active-le depuis ta manette !</p>
+            <div class="boost-row">
+                <div class="boost-item">
+                    <div class="boost-icon">🧲</div>
+                    <div class="boost-info">
+                        <strong>Aimant — 50% de chance</strong>
+                        Attire automatiquement tous les orbes proches vers toi pendant quelques secondes. Grossis à vitesse record !
+                    </div>
+                </div>
+                <div class="boost-item">
+                    <div class="boost-icon">👻</div>
+                    <div class="boost-info">
+                        <strong>Mode Fantôme — 30% de chance</strong>
+                        Tu deviens <em>intouchable</em> par les corps adverses. Traverse-les sans mourir ! (Les chocs tête-à-tête restent mortels)
+                    </div>
+                </div>
+                <div class="boost-item">
+                    <div class="boost-icon">⭐</div>
+                    <div class="boost-info">
+                        <strong>Invincibilité — 20% de chance</strong>
+                        Rien ne peut te tuer ! Ni les murs, ni les corps. Écrase tout le monde sur ton passage !
+                    </div>
+                </div>
+            </div>
+            <p style="margin-top:10px; color:#aaa; font-size:11px;">La durée du bonus dépend du type de coffre ouvert : or = plus long !</p>
+        </div>
+
+        <div class="rule-card">
+            <h2>🏆 Victoire</h2>
+            <p>Sois le <strong>dernier serpent vivant</strong> sur l'arène. Une fanfare retentira sur l'écran principal pour tous les joueurs !</p>
+            <p style="margin-top:6px;">Une nouvelle partie relance automatiquement <strong>10 secondes</strong> après la fin.</p>
+        </div>
+
+        <button id="nextBtn" onclick="document.getElementById('rulesScreen').style.display='none'; document.getElementById('loginScreen').style.display='flex';">Jouer ➜</button>
+    </div>
+
+    <!-- ======== ÉCRAN DE CONNEXION ======== -->
+    <div id="loginScreen" style="display:none;">
         <img src="/logo-transparent.png" alt="Emoji Slither Logo" style="width: 250px; max-width: 80%; margin-bottom: 20px; filter: drop-shadow(0 0 15px rgba(0,0,0,0.6));">
         <input type="text" id="pseudoInput" maxlength="10" placeholder="Ton Pseudo">
         <div id="emoji-selector" style="margin-bottom: 25px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; width: 95%; max-width: 400px; max-height: 180px; overflow-y: auto; padding-right: 5px;">
