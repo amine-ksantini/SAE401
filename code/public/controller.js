@@ -105,6 +105,9 @@ if (emojiSelector) {
 // Validation Menu
 // ---------------------------------------------------------
 joinBtn.onclick = async () => {
+    // ⚠️ iOS Safari : unlock DOIT être la toute première instruction, avant tout await
+    AudioManager.unlock();
+
     let pseudo = pseudoInput.value.trim();
     if (!pseudo) pseudo = "Anonyme";
     
@@ -131,8 +134,6 @@ joinBtn.onclick = async () => {
     
     loginScreen.style.display = 'none';
     gamepad.style.display = 'flex';
-    
-    AudioManager.unlock(); // Débloquer le son du navigateur mobile via l'interaction utilisateur
     
     joystickZone.offsetHeight;
     

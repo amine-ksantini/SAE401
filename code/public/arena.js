@@ -61,6 +61,8 @@ socket.on('gameState_update', (state) => currentGameState = state);
 socket.on('game_over', (data) => {
     if (victoryOverlay) return;
     
+    AudioManager.stopBgm(); // Couper la musique de fond
+    
     const wName = data.winnerName ? data.winnerName.toUpperCase() : "PERSONNE";
     
     victoryOverlay = document.createElement('div');
