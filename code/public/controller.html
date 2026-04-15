@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Emoji Slither - Manette</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #1a1432; color: #ffffff;
+            font-family: 'Inter', Roboto, Arial, sans-serif;
+            overflow: hidden; display: flex; flex-direction: column;
+            align-items: center; justify-content: space-between;
+            touch-action: none; user-select: none;
+        }
+
+        #loginScreen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #1a1432; z-index: 1000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        #loginScreen h1 {
+            color: #FFD700; margin-bottom: 30px; font-size: 36px; text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        #pseudoInput {
+            padding: 15px; font-size: 20px; border-radius: 12px; border: 2px solid #555;
+            text-align: center; margin-bottom: 25px; background: #2d2550; color: #fff;
+            width: 80%; max-width: 300px;
+        }
+        #pseudoInput:focus {
+            outline: none; border-color: #9c88ff; box-shadow: 0 0 15px rgba(156, 136, 255, 0.5);
+        }
+        #joinBtn {
+            padding: 15px 30px; font-size: 18px; border-radius: 30px; border: none; /* iOS fix */
+            background-color: #4CAF50; color: white; font-weight: bold;
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4); cursor: pointer; transition: 0.2s;
+        }
+        #joinBtn:active { transform: scale(0.95); }
+
+        /* HEADER UI */
+        .header {
+            width: 100%; padding: 15px 0; background-color: rgba(45, 37, 80, 0.5);
+            border-bottom: 2px solid #2d2550; display: none; 
+            justify-content: space-around; align-items: center; font-size: 20px; font-weight: bold;
+            position: relative; z-index: 20; /* Plus élevé que le joystick */
+        }
+        .stat-box { display: flex; align-items: center; gap: 10px; }
+
+        .item-container {
+            width: 100%; display: none; justify-content: center; padding: 20px 0;
+            position: relative; z-index: 20; /* Plus élevé que le joystick */
+            pointer-events: none; /* Laisse passer les taps ratés par sécurité */
+        }
+
+        #actionBtn {
+            padding: 15px 40px; font-size: 18px; border-radius: 30px; border: 2px solid #3d3560;
+            background-color: #1a1a2e; color: #666; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.2s ease; pointer-events: auto; /* Active les taps uniquement sur le btn */
+        }
+
+        #actionBtn.active {
+            background-color: #9c88ff; color: white; border: 2px solid #fff;
+            box-shadow: 0 0 15px #9c88ff; text-shadow: 0px 2px 5px rgba(0,0,0,0.5);
+        }
+
+        /* 
+           CORRECTION CRUCIALE : Le Joystick prend tout l'écran
+           pour capter le doigt n'importe où et calculer correctement le centre de nipplejs 
+        */
+        #joystick-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10;
+            touch-action: none;
+            display: none;
+        }
+
+        .status {
+            width: 100%; padding: 10px 0; text-align: center; font-size: 14px; color: #ccc;
+            background-color: #0a0815; position: absolute; bottom: 0; z-index: 50;
+        }
+    </style>
+</head>
+<body>
+    <div id="loginScreen">
+        <h1>Emoji Slither</h1>
+        <input type="text" id="pseudoInput" maxlength="10" placeholder="Ton Pseudo">
+        <button id="joinBtn">Rejoindre le Battle Royale</button>
+    </div>
+
+    <!-- UI Z-Index > 10 -->
+    <div class="header" id="uiHeader">
+        <div class="stat-box">🥇 <span id="scoreVal">3</span></div>
+        <div class="stat-box">🟡 <span id="coinsVal">0</span></div>
+    </div>
+    
+    <div class="item-container" id="uiItem">
+        <button id="actionBtn" disabled>Aucun Bonus</button>
+    </div>
+    
+    <!-- Joystick Z-Index 10 -->
+    <div id="joystick-zone"></div>
+    
+    <div class="status" id="statusText">⏳ En attente de connexion...</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="controller.js"></script>
+</body>
+</html>
