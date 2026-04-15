@@ -11,40 +11,39 @@ app.use(express.static('public'));
 const PORT = process.env.PORT || 3000;
 
 const gameState = {
-    players: {},    
+    players: {},
     arenaId: null,
-    orbs: [],       
-    coins: [],      
-    chests: []      
+    orbs: [],
+    coins: [],
+    chests: []
 };
 
-let gameStatus = 'waiting'; // 'waiting', 'playing', 'game_over'
+let gameStatus = 'waiting';
 let gamePhase = 'LOBBY';
 let waitTimeout = null;
 
-const TICK_RATE = 60; 
-const TICK_INTERVAL = 1000 / TICK_RATE; 
+const TICK_RATE = 60;
+const TICK_INTERVAL = 1000 / TICK_RATE;
 
 const MAP_WIDTH = 3000;
 const MAP_HEIGHT = 2000;
 
 const MAX_ORBS = 180;
-const MAX_COINS = 50;  
-const MAX_CHESTS = 5;  
+const MAX_COINS = 50;
+const MAX_CHESTS = 5;
 const ORB_RADIUS = 15;
 const COIN_RADIUS = 10;
 const CHEST_RADIUS = 30;
-const HEAD_RADIUS = 25; 
+const HEAD_RADIUS = 25;
 const BODY_RADIUS = 20;
 
-const RECORD_DIST = 10; 
+const RECORD_DIST = 10;
 const RECORD_DIST_SQ = RECORD_DIST * RECORD_DIST;
-const HISTORY_MULTIPLIER = 3; 
+const HISTORY_MULTIPLIER = 3;
 
 let orbIdCounter = 0; let coinIdCounter = 0; let chestIdCounter = 0;
 
 function spawnOrb() {
-    // Évite des fuites memoire de timers pendents de l'ancienne partie
     if (gameState.orbs.length >= MAX_ORBS || gameStatus === 'game_over') return;
     const colors = ['#ff0055', '#00aaff', '#00ffaa', '#ffcc00', '#cc00ff'];
     gameState.orbs.push({
@@ -86,41 +85,36 @@ function killPlayer(socketId, killerName) {
     const p = gameState.players[socketId];
     if (!p || p.isDead || gameStatus !== 'playing') return;
 
-    // --- 1. Calcul du butin ---
     const lootCount = Math.max(1, Math.floor(p.score * (Math.random() * 0.2 + 0.3)));
-    
-    // --- 2. Effet d'explosion sphérique depuis la position précise du décès (tête) ---
+
     for (let i = 0; i < lootCount; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const distance = Math.random() * 60; // Dispersion des orbes de 0 à 60 pixels
-        
+        const distance = Math.random() * 60;
+
         const explodedX = p.x + Math.cos(angle) * distance;
         const explodedY = p.y + Math.sin(angle) * distance;
-        
-        // --- 3. Ajout dans gameState.orbs avec format strictement identique à la génération serveur ---
+
         gameState.orbs.push({
             id: 'loot_' + Date.now() + '_' + i + '_' + Math.floor(Math.random() * 1000000),
-            x: Math.max(20, Math.min(MAP_WIDTH - 20, explodedX)), // Verrouillage d'arène
+            x: Math.max(20, Math.min(MAP_WIDTH - 20, explodedX)),
             y: Math.max(20, Math.min(MAP_HEIGHT - 20, explodedY)),
             color: p.color,
             isLoot: true
         });
     }
 
-    // --- 4. Modification de l'Etat de Mort à la toute fin ---
-    p.isDead = true; 
-    p.activeBuff = null; 
+    p.isDead = true;
+    p.activeBuff = null;
 
     if (gameState.arenaId) {
         const killerObj = gameState.players[killerName];
         const killerPseudo = killerName === 'Le Mur' ? 'Le Mur' : (killerObj ? killerObj.pseudo : 'Inconnu');
         const victimPseudo = p.pseudo;
-        
+
         const msg = killerName === 'Le Mur' ? `💀 ${victimPseudo} s'est écrasé` : `${killerPseudo} 🔪 ${victimPseudo}`;
         io.to(gameState.arenaId).emit('player_killed', { message: msg });
     }
-    
-    // --- Signaler la mort au joueur pour qu'il entende le son sur son téléphone ---
+
     io.to(socketId).emit('you_died');
     io.to(socketId).emit('play_local_sound', 'death');
 }
@@ -134,12 +128,11 @@ io.on('connection', (socket) => {
     socket.on('register_controller', (data) => {
         if (gamePhase !== 'LOBBY') {
             socket.emit('join_error', 'La partie est déjà en cours. Veuillez patienter dans les gradins !');
-            return; // Bloque la création du joueur
+            return;
         }
 
-        // Enregistre en tant que spectateur mort si la partie est finie ou non connectée
         const isGameFinished = (gameStatus === 'game_over');
-        
+
         gameState.preservedCoins = gameState.preservedCoins || {};
 
         gameState.players[socket.id] = {
@@ -151,19 +144,19 @@ io.on('connection', (socket) => {
             angle: 0,
             force: 0,
             color: '#' + Math.floor(Math.random() * 16777215).toString(16),
-            score: 3, 
+            score: 3,
             coins: gameState.preservedCoins[socket.id] || 0,
-            activeItem: null,  
-            activeBuff: null,  
-            buffEndTime: 0,    
+            activeItem: null,
+            activeBuff: null,
+            buffEndTime: 0,
             history: [],
-            isDead: isGameFinished 
+            isDead: isGameFinished
         };
 
         socket.emit('controller_registered', { id: socket.id });
 
         if (isGameFinished) {
-            io.to(socket.id).emit('you_died'); // Force le spectateur par sécurité
+            io.to(socket.id).emit('you_died');
         }
 
         if (gameState.arenaId) {
@@ -183,9 +176,9 @@ io.on('connection', (socket) => {
     socket.on('activate_bonus', () => {
         const p = gameState.players[socket.id];
         if (p && !p.isDead && p.activeItem && gameStatus === 'playing') {
-            p.activeBuff = p.activeItem; 
-            p.activeItem = null;         
-            p.buffEndTime = Date.now() + (p.pendingBuffDuration || 10000); 
+            p.activeBuff = p.activeItem;
+            p.activeItem = null;
+            p.buffEndTime = Date.now() + (p.pendingBuffDuration || 10000);
         }
     });
 
@@ -204,27 +197,26 @@ io.on('connection', (socket) => {
         const numPlayers = Math.max(1, playerArray.length);
         const centerX = MAP_WIDTH / 2;
         const centerY = MAP_HEIGHT / 2;
-        const radius = Math.min(MAP_WIDTH, MAP_HEIGHT) * 0.4; // Cercle à 40% de l'arène
+        const radius = Math.min(MAP_WIDTH, MAP_HEIGHT) * 0.4;
 
         playerArray.forEach((p, index) => {
             const angle = (index / numPlayers) * Math.PI * 2;
             p.x = centerX + Math.cos(angle) * radius;
             p.y = centerY + Math.sin(angle) * radius;
-            
-            // Si le joueur est à gauche du centre, il pointe vers la droite (0). Sinon gauche (PI)
+
             p.angle = (p.x < MAP_WIDTH / 2) ? 0 : Math.PI;
-            
-            p.history = []; // Efface le corps précédent (équivalent de p.parts)
-            p.score = 3; // Longueur de base dans notre système
-            p.coins = 0; // Remise à zéro de l'économie
+
+            p.history = [];
+            p.score = 3;
+            p.coins = 0;
             p.isDead = false;
         });
 
         io.emit('countdown_start', 5);
-        
+
         setTimeout(() => {
             gamePhase = 'PLAYING';
-            gameStatus = 'playing'; // Forçons la synchronisation avec l'ancien système
+            gameStatus = 'playing';
             io.emit('game_started');
         }, 5000);
     });
@@ -239,68 +231,61 @@ let lastTime = Date.now();
 function resetGame() {
     gameState.orbs = []; gameState.coins = []; gameState.chests = [];
     orbIdCounter = 0; coinIdCounter = 0; chestIdCounter = 0;
-    
-    // Le statut DOIT être waiting pour the spawn autorisés
-    gameStatus = 'waiting'; 
+
+    gameStatus = 'waiting';
     gamePhase = 'LOBBY';
-    
+
     for (let i = 0; i < MAX_ORBS; i++) spawnOrb();
     for (let i = 0; i < MAX_COINS; i++) spawnCoin();
     spawnSpecificChest('Bronze');
     spawnSpecificChest('Argent');
     spawnSpecificChest('Or');
-    
+
     gameState.preservedCoins = gameState.preservedCoins || {};
     for (const socketId in gameState.players) {
         gameState.preservedCoins[socketId] = gameState.players[socketId].coins;
-        io.to(socketId).emit('game_restart'); // Renvoie au menu mobile
+        io.to(socketId).emit('game_restart');
     }
-    
-    // Purge le lobby pour exiger une action manuelle !
-    gameState.players = {}; 
+
+    gameState.players = {};
     io.emit('lobby_update', []);
-    
+
     if (gameState.arenaId) {
-        io.to(gameState.arenaId).emit('game_restart'); // Retire le filtre arène
+        io.to(gameState.arenaId).emit('game_restart');
     }
 }
 
 function updateGameState(dt) {
-    if (gameStatus === 'game_over') return; 
+    if (gameStatus === 'game_over') return;
 
     const playersArr = Object.values(gameState.players);
     const alivePlayers = playersArr.filter(p => !p.isDead);
-    
-    // Check de début de partie supprimé car géré par le Lobby manuel
-    // (Ancien code d'auto-start)
-    
-    // Check Fin de partie
+
+
     if (gameStatus === 'playing') {
         if (alivePlayers.length <= 1) {
             gameStatus = 'game_over';
             const winner = alivePlayers.length === 1 ? alivePlayers[0] : null;
-            
+
             if (gameState.arenaId) {
-                io.to(gameState.arenaId).emit('game_over', { 
-                    winnerName: winner ? winner.pseudo : "Etrangement personne" 
+                io.to(gameState.arenaId).emit('game_over', {
+                    winnerName: winner ? winner.pseudo : "Etrangement personne"
                 });
-                // Victoire globale sur l'arène pour tous les spectateurs
                 io.to(gameState.arenaId).emit('play_global_sound', 'victory');
             }
-            
+
             for (const p of playersArr) {
-                io.to(p.id).emit('game_over', { 
-                    winnerId: winner ? winner.id : null, 
-                    winnerName: winner ? winner.pseudo : "Personne" 
+                io.to(p.id).emit('game_over', {
+                    winnerId: winner ? winner.id : null,
+                    winnerName: winner ? winner.pseudo : "Personne"
                 });
             }
-            
-            // Relance asynchrone ultra-safe d'exactement 10s
+
             if (waitTimeout) clearTimeout(waitTimeout);
             waitTimeout = setTimeout(() => {
                 resetGame();
             }, 10000);
-            
+
             return;
         }
     }
@@ -309,17 +294,16 @@ function updateGameState(dt) {
     const playersToKill = [];
 
     if (gamePhase === 'PLAYING') {
-        // Boucle Physique Standard
         for (const socketId in gameState.players) {
             const player = gameState.players[socketId];
             if (player.isDead) continue;
-            
+
             if (player.activeBuff && Date.now() > player.buffEndTime) player.activeBuff = null;
-            
+
             if (player.activeBuff === 'Aimant') {
                 const MAGNET_DIST_SQ = 150 * 150;
-                const MAGNET_SPEED = 500; 
-                
+                const MAGNET_SPEED = 500;
+
                 for (let i = 0; i < gameState.orbs.length; i++) {
                     const orb = gameState.orbs[i];
                     if (getDistanceSq(player.x, player.y, orb.x, orb.y) < MAGNET_DIST_SQ) {
@@ -331,9 +315,8 @@ function updateGameState(dt) {
 
             }
 
-            // Nouveau modèle de mouvement : constant et plus lent
-            const baseSpeed = 150; 
-            const boostSpeed = Math.min(player.force || 0, 2) * 50; 
+            const baseSpeed = 150;
+            const boostSpeed = Math.min(player.force || 0, 2) * 50;
             const finalSpeed = baseSpeed + boostSpeed;
 
             const nX = player.x + Math.cos(player.angle) * finalSpeed * dt;
@@ -348,7 +331,7 @@ function updateGameState(dt) {
                     player.history.unshift({ x: cX, y: cY });
                     const maxLen = player.score * HISTORY_MULTIPLIER;
                     if (player.history.length > maxLen) {
-                        player.history.length = maxLen; 
+                        player.history.length = maxLen;
                     }
                 }
             }
@@ -357,8 +340,8 @@ function updateGameState(dt) {
             player.y = cY;
 
             if (player.x <= 5 || player.x >= MAP_WIDTH - 5 || player.y <= 5 || player.y >= MAP_HEIGHT - 5) {
-                 if (player.activeBuff !== 'Invincibilité') playersToKill.push({ id: socketId, killer: 'Le Mur' });
-                 continue; 
+                if (player.activeBuff !== 'Invincibilité') playersToKill.push({ id: socketId, killer: 'Le Mur' });
+                continue;
             }
 
             for (const otherId in gameState.players) {
@@ -371,7 +354,7 @@ function updateGameState(dt) {
                 if (distSqH2H < (HEAD_RADIUS * 2) * (HEAD_RADIUS * 2)) {
                     if (player.activeBuff !== 'Invincibilité') playersToKill.push({ id: socketId, killer: otherId });
                     if (other.activeBuff !== 'Invincibilité') playersToKill.push({ id: otherId, killer: socketId });
-                    continue; 
+                    continue;
                 }
 
                 const collisionBody = (HEAD_RADIUS + BODY_RADIUS) * (HEAD_RADIUS + BODY_RADIUS);
@@ -394,17 +377,17 @@ function updateGameState(dt) {
                     setTimeout(spawnOrb, 3000);
                 }
             }
-            
+
             const limCoins = (HEAD_RADIUS + COIN_RADIUS) * (HEAD_RADIUS + COIN_RADIUS);
             for (let i = gameState.coins.length - 1; i >= 0; i--) {
                 if (getDistanceSq(player.x, player.y, gameState.coins[i].x, gameState.coins[i].y) < limCoins) {
                     gameState.coins.splice(i, 1);
                     player.coins += 1;
                     io.to(socketId).emit('play_local_sound', 'coin');
-                    setTimeout(spawnCoin, 5000 + Math.random()*2000); 
+                    setTimeout(spawnCoin, 5000 + Math.random() * 2000);
                 }
             }
-            
+
             const limChests = (HEAD_RADIUS + CHEST_RADIUS) * (HEAD_RADIUS + CHEST_RADIUS);
             for (let i = gameState.chests.length - 1; i >= 0; i--) {
                 if (getDistanceSq(player.x, player.y, gameState.chests[i].x, gameState.chests[i].y) < limChests) {
@@ -412,11 +395,10 @@ function updateGameState(dt) {
                     let cost = 5;
                     if (type === 'Argent') cost = 10;
                     if (type === 'Or') cost = 15;
-                    
+
                     if (player.coins >= cost) {
                         player.coins -= cost;
                         gameState.chests.splice(i, 1);
-                        // Probabilités : 50% Aimant, 30% Fantôme, 20% Invincibilité
                         const rand = Math.random();
                         if (rand < 0.50) player.activeItem = 'Aimant';
                         else if (rand < 0.80) player.activeItem = 'Fantôme';
@@ -429,7 +411,7 @@ function updateGameState(dt) {
             }
         }
 
-        const uniqueKills = [...new Set(playersToKill.map(k=>k.id))];
+        const uniqueKills = [...new Set(playersToKill.map(k => k.id))];
         for (const killedId of uniqueKills) {
             const killInstance = playersToKill.find(k => k.id === killedId);
             killPlayer(killInstance.id, killInstance.killer);
@@ -441,11 +423,11 @@ let tickCounter = 0;
 
 function gameLoop() {
     const currentTime = Date.now();
-    const deltaTime = (currentTime - lastTime) / 1000; 
+    const deltaTime = (currentTime - lastTime) / 1000;
     lastTime = currentTime;
 
     updateGameState(deltaTime);
-    
+
     if (gameState.arenaId) {
         io.to(gameState.arenaId).emit('gameState_update', {
             players: gameState.players,
@@ -454,7 +436,7 @@ function gameLoop() {
             chests: gameState.chests
         });
     }
-    
+
     tickCounter++;
     if (tickCounter >= 10) {
         tickCounter = 0;
@@ -471,14 +453,14 @@ function gameLoop() {
         for (const p of alivePlayers) {
             let buffRemaining = 0;
             if (p.activeBuff) buffRemaining = Math.max(0, Math.ceil((p.buffEndTime - Date.now()) / 1000));
-            
+
             const playerRank = allSorted.findIndex(sp => sp.id === p.id) + 1;
-            
+
             io.to(p.id).emit('ui_update', {
-                score: p.score, 
-                coins: p.coins, 
-                activeItem: p.activeItem, 
-                activeBuff: p.activeBuff, 
+                score: p.score,
+                coins: p.coins,
+                activeItem: p.activeItem,
+                activeBuff: p.activeBuff,
                 buffRemaining: buffRemaining,
                 buffDurationMs: p.pendingBuffDuration || 10000,
                 rank: playerRank,

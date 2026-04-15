@@ -1,14 +1,12 @@
 const socket = io();
 
-// Écoute des sons personnels envoyés par le serveur (smartphone uniquement)
 socket.on('play_local_sound', (type) => {
-    if (type === 'orb')   AudioManager.playOrb();
-    if (type === 'coin')  AudioManager.playCoin();
+    if (type === 'orb') AudioManager.playOrb();
+    if (type === 'coin') AudioManager.playCoin();
     if (type === 'chest') AudioManager.playChest();
     if (type === 'death') AudioManager.playDeath();
 });
 
-// UI Elements
 const statusText = document.getElementById('statusText');
 const scoreDisplay = document.getElementById('score-display');
 const coinsDisplay = document.getElementById('coins-display');
@@ -19,7 +17,7 @@ const gamepad = document.getElementById('gamepad');
 const loginScreen = document.getElementById('loginScreen');
 const joinBtn = document.getElementById('joinBtn');
 const pseudoInput = document.getElementById('pseudoInput');
-const joystickZone = document.getElementById('joystick-half'); // Updated to capture full left area
+const joystickZone = document.getElementById('joystick-half');
 
 let currentItemDuration = 10000;
 
@@ -35,13 +33,11 @@ function setTheme(buffName) {
     if (card) card.className = themes[buffName] || 'theme-default';
 }
 
-// Portée stricte (Global Scope)
 let currentAngle = 0;
 let currentForce = 0;
-let isMoving = false; 
+let isMoving = false;
 let manager = null;
 
-// La boucle réseau
 const SEND_TICK_RATE = 60;
 setInterval(() => {
     if (isMoving && currentForce > 0) {
@@ -56,19 +52,18 @@ function initJoystick() {
     if (manager) {
         manager.destroy();
     }
-    
+
     manager = nipplejs.create({
         zone: joystickZone,
-        mode: 'dynamic', // Autorise de cliquer n'importe où sur l'écran
+        mode: 'dynamic',
         color: '#9c88ff',
         size: 150
     });
 
     manager.on('move', (evt, data) => {
         if (data.angle && data.force !== undefined) {
-            // Assigne strictement les variables globales sans créer de redéclaration (Pas de "let" ici) !
             currentAngle = data.angle.radian;
-            currentForce = data.force; 
+            currentForce = data.force;
             isMoving = true;
         }
     });
@@ -76,13 +71,13 @@ function initJoystick() {
     manager.on('end', () => {
         currentForce = 0;
         isMoving = false;
-        
+
         socket.emit('controller_input', { angle: currentAngle, force: 0 });
     });
 }
 
 let selectedEmoji = null;
-const EMOJIS = ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐒","🐔","🐧","🐦","🐤","🐺","🐗","🐴","🦄","🐝","🐛","🦋","🐌","🐞","🐜","🐢","🐍","🦎","🦖","🦕","🐙","🦑","🦐","🦀","🐡","🐠","🐬","🐳","🦈","🐊","🐅","🐆","🦓","🦍","🦧","🐘"];
+const EMOJIS = ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐒", "🐔", "🐧", "🐦", "🐤", "🐺", "🐗", "🐴", "🦄", "🐝", "🐛", "🦋", "🐌", "🐞", "🐜", "🐢", "🐍", "🦎", "🦖", "🦕", "🐙", "🦑", "🦐", "🦀", "🐡", "🐠", "🐬", "🐳", "🦈", "🐊", "🐅", "🐆", "🦓", "🦍", "🦧", "🐘"];
 const emojiSelector = document.getElementById('emoji-selector');
 
 if (emojiSelector) {
@@ -91,19 +86,17 @@ if (emojiSelector) {
         el.className = 'emoji-option';
         el.innerText = emoji;
         emojiSelector.appendChild(el);
-        
+
         el.addEventListener('click', () => {
             document.querySelectorAll('.emoji-option').forEach(e => e.classList.remove('selected'));
             el.classList.add('selected');
             selectedEmoji = emoji;
-            document.getElementById('error-message').innerText = ''; 
+            document.getElementById('error-message').innerText = '';
         });
     });
 }
 
-// ---------------------------------------------------------
-// Navigation : Règles → Login
-// ---------------------------------------------------------
+
 const nextBtn = document.getElementById('nextBtn');
 if (nextBtn) {
     nextBtn.addEventListener('click', () => {
@@ -112,24 +105,21 @@ if (nextBtn) {
     });
 }
 
-// ---------------------------------------------------------
-// Validation Menu : Login → Gamepad
-// ---------------------------------------------------------
+
 joinBtn.addEventListener('click', async () => {
-    // ⚠️ iOS Safari : unlock DOIT être la toute première instruction, avant tout await
     AudioManager.unlock();
 
     let pseudo = pseudoInput.value.trim();
     if (!pseudo) pseudo = "Anonyme";
-    
+
     if (!selectedEmoji) {
         document.getElementById('error-message').innerText = "Veuillez choisir un Émoji !";
         return;
     }
-    
-    document.getElementById('error-message').innerText = ''; 
+
+    document.getElementById('error-message').innerText = '';
     document.getElementById('player-pseudo').innerText = `${selectedEmoji} ${pseudo}`;
-    
+
     try {
         if (document.documentElement.requestFullscreen) {
             await document.documentElement.requestFullscreen();
@@ -142,24 +132,22 @@ joinBtn.addEventListener('click', async () => {
     } catch (err) {
         console.warn("Le mode paysage forcé n'est pas totalement supporté.");
     }
-    
+
     loginScreen.style.display = 'none';
     gamepad.style.display = 'flex';
-    
+
     joystickZone.offsetHeight;
-    
+
     initJoystick();
-    
+
     socket.emit('register_controller', { pseudo: pseudo, emoji: selectedEmoji });
 });
 
 socket.on('join_error', (message) => {
-    // Réaffiche l'écran de connexion si on l'avait caché
     loginScreen.style.display = 'flex';
     gamepad.style.display = 'none';
     if (manager) manager.destroy();
-    
-    // Affiche le message d'erreur
+
     document.getElementById('error-message').innerText = message;
 });
 
@@ -177,8 +165,8 @@ socket.on('disconnect', () => {
 socket.on('ui_update', (data) => {
     if (scoreDisplay) scoreDisplay.innerText = data.score;
     if (coinsDisplay) coinsDisplay.innerText = data.coins;
-    if(data.rank && rankDisplay) rankDisplay.innerText = `Rang: #${data.rank}`;
-    
+    if (data.rank && rankDisplay) rankDisplay.innerText = `Rang: #${data.rank}`;
+
     if (data.activeBuff) {
         bonusBtn.disabled = true;
     } else if (data.activeItem) {
@@ -187,14 +175,14 @@ socket.on('ui_update', (data) => {
         if (data.activeItem === 'Aimant') icon = "🧲";
         if (data.activeItem === 'Invincibilité') icon = "⭐";
         if (data.activeItem === 'Fantôme') icon = "👻";
-        
+
         document.getElementById('btn-icon').innerText = icon;
         document.getElementById('btn-title').innerText = "ACTIVER";
-        document.getElementById('btn-subtitle').innerText = `${data.activeItem} (${currentItemDuration/1000}s)`;
-        
+        document.getElementById('btn-subtitle').innerText = `${data.activeItem} (${currentItemDuration / 1000}s)`;
+
         bonusBtn.disabled = false;
         document.getElementById('btn-progress-bar').style.display = 'none';
-        
+
         setTheme(data.activeItem);
     } else {
         document.getElementById('btn-icon').innerText = "❌";
@@ -202,13 +190,13 @@ socket.on('ui_update', (data) => {
         document.getElementById('btn-subtitle').innerText = "Bonus";
         bonusBtn.disabled = true;
         document.getElementById('btn-progress-bar').style.display = 'none';
-        
+
         setTheme('default');
     }
 });
 
 bonusBtn.ontouchstart = (e) => {
-    e.preventDefault(); 
+    e.preventDefault();
     if (!bonusBtn.disabled) {
         socket.emit('activate_bonus');
         if ("vibrate" in navigator) navigator.vibrate(200);
@@ -222,13 +210,13 @@ function animateBonusGauge(durationMs) {
     const fill = document.getElementById('btn-progress-fill');
     const bar = document.getElementById('btn-progress-bar');
     if (bar) bar.style.display = 'block';
-    
+
     function updateGauge() {
         let elapsed = Date.now() - startTime;
         let percent = Math.max(0, 100 - (elapsed / durationMs) * 100);
-        
+
         if (fill) fill.style.width = percent + '%';
-        
+
         if (percent > 0) {
             requestAnimationFrame(updateGauge);
         } else {
@@ -246,7 +234,7 @@ socket.on('you_died', () => {
     isMoving = false;
     if (manager) manager.destroy();
     gamepad.style.display = 'none';
-    
+
     statusText.innerHTML = "<h2 style='margin:10px 0;'>💀 ÉLIMINÉ</h2><p style='color:#ccc; font-weight:normal;'>Mode spectateur actif</p>";
     statusText.style.color = "#FF5252";
     socket.emit('controller_input', { angle: 0, force: 0 });
@@ -256,7 +244,7 @@ socket.on('game_over', (data) => {
     isMoving = false;
     if (manager) manager.destroy();
     gamepad.style.display = 'none';
-    
+
     if (data.winnerId === socket.id) {
         if ("vibrate" in navigator) navigator.vibrate([500, 200, 500]);
         statusText.innerHTML = "<h2 style='margin:10px 0; color:#FFD700;'>🏆 TU AS GAGNÉ !</h2><p style='color:#ccc; font-weight:normal;'>Redémarrage en cours...</p>";
@@ -271,8 +259,8 @@ socket.on('game_restart', () => {
     loginScreen.style.display = 'flex';
     gamepad.style.display = 'none';
     if (manager) manager.destroy();
-    
-    document.getElementById('error-message').innerText = ''; 
+
+    document.getElementById('error-message').innerText = '';
     statusText.innerText = "⏳ En attente de connexion...";
     statusText.style.color = "#ccc";
 });
