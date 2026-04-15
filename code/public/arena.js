@@ -95,6 +95,8 @@ socket.on('game_restart', () => {
         victoryOverlay.remove();
         victoryOverlay = null;
     }
+    const lobby = document.getElementById('lobby-screen');
+    if (lobby) lobby.style.display = 'flex'; // Force le retour au menu !
 });
 
 // Déplacement du Killfeed en Bas à Gauche selon la directive
@@ -145,33 +147,65 @@ socket.on('player_killed', (data) => {
     }, 4000);
 });
 
-function drawHexagon(x, y, size) {
-    ctx.beginPath();
+// Offscreen Canvas for static Deep Space Background (Performance + Aesthetics)
+const bgCanvas = document.createElement('canvas');
+bgCanvas.width = CANVAS_WIDTH;
+bgCanvas.height = CANVAS_HEIGHT;
+const bgCtx = bgCanvas.getContext('2d', { alpha: false });
+
+function preRenderBackground() {
+    bgCtx.fillStyle = '#050212';
+    bgCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // Profondeur : Nébuleuses (Bokeh)
     for (let i = 0; i < 6; i++) {
-        const rad = (Math.PI / 3) * i;
-        ctx[i === 0 ? 'moveTo' : 'lineTo'](x + size * Math.cos(rad), y + size * Math.sin(rad));
+        const cx = Math.random() * CANVAS_WIDTH;
+        const cy = Math.random() * CANVAS_HEIGHT;
+        const r = 400 + Math.random() * 600;
+        const grad = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        const colors = [
+            'rgba(120, 0, 255, 0.08)',
+            'rgba(0, 150, 255, 0.06)',
+            'rgba(255, 0, 100, 0.05)'
+        ];
+        grad.addColorStop(0, colors[Math.floor(Math.random() * colors.length)]);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        bgCtx.fillStyle = grad;
+        bgCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
-    ctx.closePath();
-    ctx.stroke();
-}
-
-function drawHexGrid() {
-    ctx.strokeStyle = GRID_COLOR;
-    ctx.lineWidth = 2; 
-    const hw = Math.sqrt(3) * HEX_SIZE;
-    const hh = 2 * HEX_SIZE;
-    const cols = Math.ceil(CANVAS_WIDTH / hw) + 1;
-    const rows = Math.ceil(CANVAS_HEIGHT / (hh * 0.75)) + 1;
-
-    for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-            let x = col * hw;
-            let y = row * hh * 0.75;
-            if (row % 2 === 1) x += hw / 2;
-            drawHexagon(x, y, HEX_SIZE);
+    
+    // Grille Cyber-Moderne pointillée
+    const step = 60;
+    bgCtx.fillStyle = 'rgba(100, 150, 255, 0.15)';
+    for (let x = 0; x < CANVAS_WIDTH; x+= step) {
+        for (let y = 0; y < CANVAS_HEIGHT; y+= step) {
+            bgCtx.beginPath();
+            bgCtx.arc(x, y, 2, 0, Math.PI*2);
+            bgCtx.fill();
         }
     }
+    
+    // Vignette / Shadow sur les bordures du monde
+    const vignette = bgCtx.createRadialGradient(
+        CANVAS_WIDTH/2, CANVAS_HEIGHT/2, CANVAS_HEIGHT*0.3,
+        CANVAS_WIDTH/2, CANVAS_HEIGHT/2, CANVAS_WIDTH*0.6
+    );
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.85)');
+    bgCtx.fillStyle = vignette;
+    bgCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // Bordure lumineuse externe
+    bgCtx.strokeStyle = 'rgba(100, 150, 255, 0.5)';
+    bgCtx.lineWidth = 10;
+    bgCtx.strokeRect(5, 5, CANVAS_WIDTH-10, CANVAS_HEIGHT-10);
+    // Glow interne
+    bgCtx.strokeStyle = 'rgba(100, 150, 255, 0.2)';
+    bgCtx.lineWidth = 30;
+    bgCtx.strokeRect(20, 20, CANVAS_WIDTH-40, CANVAS_HEIGHT-40);
 }
+
+preRenderBackground();
 
 function drawGameObjects() {
     for (let i = 0; i < (currentGameState.orbs || []).length; i++) {
@@ -192,16 +226,50 @@ function drawGameObjects() {
     for (let i = 0; i < (currentGameState.coins || []).length; i++) {
         const coin = currentGameState.coins[i];
         ctx.beginPath(); ctx.arc(coin.x, coin.y, 12, 0, Math.PI * 2);
-        ctx.shadowBlur = 15; ctx.shadowColor = coin.color; ctx.fillStyle = coin.color;
-        ctx.fill(); ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.stroke(); ctx.closePath();
+        ctx.shadowBlur = 0; 
+        ctx.fillStyle = '#F1C40F'; ctx.fill(); 
+        
+        ctx.lineWidth = 5; ctx.strokeStyle = '#000000'; ctx.stroke(); // Contour noir extérieur
+        ctx.lineWidth = 3; ctx.strokeStyle = '#F39C12'; ctx.stroke(); // Bordure plus foncée
+        ctx.closePath();
+        
+        ctx.font = "bold 14px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.lineWidth = 3; ctx.strokeStyle = "#000000"; ctx.strokeText("$", coin.x, coin.y);
+        ctx.fillStyle = "#ffffff"; ctx.fillText("$", coin.x, coin.y);
     }
     for (let i = 0; i < (currentGameState.chests || []).length; i++) {
         const chest = currentGameState.chests[i];
-        ctx.shadowBlur = 20; ctx.shadowColor = chest.color; ctx.fillStyle = chest.color;
-        ctx.fillRect(chest.x - 15, chest.y - 12, 30, 24);
-        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.strokeRect(chest.x - 15, chest.y - 12, 30, 24);
-        ctx.beginPath(); ctx.moveTo(chest.x - 15, chest.y); ctx.lineTo(chest.x + 15, chest.y);
-        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.stroke();
+        const w = 60, h = 45;
+        const cx = chest.x - w/2;
+        const cy = chest.y - h/2;
+        
+        let cost = 5;
+        let cBody = '#CD7F32'; let cGlow = '#8B4513';
+        if (chest.type === 'Argent') { cost = 10; cBody = '#C0C0C0'; cGlow = '#A9A9A9'; }
+        if (chest.type === 'Or') { cost = 15; cBody = '#FFD700'; cGlow = '#FFA500'; }
+
+        // Base glowing
+        ctx.shadowBlur = 35; ctx.shadowColor = cGlow; ctx.fillStyle = cBody;
+        ctx.fillRect(cx, cy, w, h);
+        
+        // Base visual distinction
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.strokeRect(cx, cy, w, h);
+        
+        // Lid detail
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(cx, cy, w, h * 0.4); 
+        ctx.beginPath(); ctx.moveTo(cx, cy + h * 0.4); ctx.lineTo(cx + w, cy + h * 0.4);
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
+        
+        // Lock center
+        ctx.beginPath(); ctx.moveTo(cx + w/2 - 5, cy + h*0.4); ctx.lineTo(cx + w/2 + 5, cy + h*0.4);
+        ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 4; ctx.stroke();
+
+        // Label text cost with black outline perfectly scaled
+        ctx.font = "bold 20px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.lineWidth = 4; ctx.strokeStyle = "#000000"; ctx.strokeText(cost.toString(), chest.x, chest.y + 8);
+        ctx.fillStyle = "#FFFFFF"; ctx.fillText(cost.toString(), chest.x, chest.y + 8);
     }
     ctx.shadowBlur = 0;
 }
@@ -209,10 +277,8 @@ function drawGameObjects() {
 function renderLoop() {
     requestAnimationFrame(renderLoop);
 
-    ctx.fillStyle = BG_COLOR;
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    
-    drawHexGrid();
+    // Dessiner le fond mis en cache (très rapide)
+    ctx.drawImage(bgCanvas, 0, 0);
     drawGameObjects();
 
     for (const socketId in currentGameState.players) {
@@ -256,7 +322,7 @@ function renderLoop() {
         }
         
         ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText("🐍", player.x, player.y);
+        ctx.fillText(player.emoji || "🐍", player.x, player.y);
         
         ctx.font = "16px Arial"; ctx.fillStyle = "#ffffff";
         ctx.fillText(`${player.pseudo} : ${player.score}`, player.x, player.y - 40);
@@ -266,3 +332,81 @@ function renderLoop() {
 }
 
 renderLoop();
+
+socket.on('lobby_update', (players) => {
+    const countEl = document.getElementById('player-count');
+    const listEl = document.getElementById('player-list');
+    if (countEl && listEl) {
+        countEl.innerText = `${players.length} joueur(s) prêt(s)`;
+        listEl.innerHTML = '';
+        players.forEach(p => {
+            const li = document.createElement('li');
+            li.style.color = p.color || '#FFF';
+            li.style.textShadow = '1px 1px 2px black';
+            li.style.marginBottom = '5px';
+            li.innerText = `${p.emoji || '🐍'} ${p.pseudo}`;
+            listEl.appendChild(li);
+        });
+    }
+});
+
+const btnStart = document.getElementById('btn-start');
+if (btnStart) {
+    btnStart.addEventListener('click', async () => {
+        try {
+            if (document.documentElement.requestFullscreen) {
+                await document.documentElement.requestFullscreen();
+            } else if (document.documentElement.webkitRequestFullscreen) {
+                await document.documentElement.webkitRequestFullscreen();
+            }
+        } catch(e) {
+            console.warn("Fullscreen refusé ou non supporté");
+        }
+        socket.emit('start_game_request');
+    });
+}
+
+socket.on('countdown_start', (seconds) => {
+    const lobby = document.getElementById('lobby-screen');
+    if (lobby) lobby.style.display = 'none';
+
+    const cdScreen = document.getElementById('countdown-screen');
+    const cdNum = document.getElementById('countdown-number');
+    
+    if (cdScreen && cdNum) {
+        cdScreen.style.display = 'flex';
+        cdNum.innerText = seconds;
+        cdNum.classList.add('pulse-anim');
+        
+        let remaining = seconds;
+        const interval = setInterval(() => {
+            remaining--;
+            if (remaining > 0) {
+                cdNum.innerText = remaining;
+                // Force le navigateur à relancer l'animation CSS heartbeat
+                cdNum.classList.remove('pulse-anim');
+                void cdNum.offsetWidth; 
+                cdNum.classList.add('pulse-anim');
+            } else if (remaining === 0) {
+                cdNum.innerText = "GO !";
+                cdNum.classList.remove('pulse-anim');
+                void cdNum.offsetWidth; 
+                cdNum.classList.add('pulse-anim');
+            } else {
+                clearInterval(interval);
+            }
+        }, 1000);
+    }
+});
+
+socket.on('game_started', () => {
+    const lobby = document.getElementById('lobby-screen');
+    if (lobby) lobby.style.display = 'none';
+    
+    const cdScreen = document.getElementById('countdown-screen');
+    if (cdScreen) {
+        cdScreen.style.opacity = '0';
+        cdScreen.style.transition = 'opacity 0.5s ease-out';
+        setTimeout(() => cdScreen.style.display = 'none', 500);
+    }
+});

@@ -2,17 +2,30 @@ const socket = io();
 
 // UI Elements
 const statusText = document.getElementById('statusText');
-const scoreVal = document.getElementById('scoreVal');
-const coinsVal = document.getElementById('coinsVal');
-const actionBtn = document.getElementById('actionBtn');
+const scoreDisplay = document.getElementById('score-display');
+const coinsDisplay = document.getElementById('coins-display');
+const rankDisplay = document.getElementById('rank-display');
+const bonusBtn = document.getElementById('bonus-btn');
+const gamepad = document.getElementById('gamepad');
 
 const loginScreen = document.getElementById('loginScreen');
 const joinBtn = document.getElementById('joinBtn');
 const pseudoInput = document.getElementById('pseudoInput');
+const joystickZone = document.getElementById('joystick-half'); // Updated to capture full left area
 
-const uiHeader = document.getElementById('uiHeader');
-const uiItem = document.getElementById('uiItem');
-const joystickZone = document.getElementById('joystick-zone');
+let currentItemDuration = 10000;
+
+const themes = {
+    'default': 'theme-default',
+    'Aimant': 'theme-aimant',
+    'Invincibilité': 'theme-invincible',
+    'Fantôme': 'theme-fantome'
+};
+
+function setTheme(buffName) {
+    const card = document.getElementById('game-card');
+    if (card) card.className = themes[buffName] || 'theme-default';
+}
 
 // Portée stricte (Global Scope)
 let currentAngle = 0;
@@ -53,38 +66,80 @@ function initJoystick() {
     });
 
     manager.on('end', () => {
-        currentAngle = 0;
         currentForce = 0;
         isMoving = false;
         
-        socket.emit('controller_input', { angle: 0, force: 0 });
+        socket.emit('controller_input', { angle: currentAngle, force: 0 });
+    });
+}
+
+let selectedEmoji = null;
+const EMOJIS = ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐒","🐔","🐧","🐦","🐤","🐺","🐗","🐴","🦄","🐝","🐛","🦋","🐌","🐞","🐜","🐢","🐍","🦎","🦖","🦕","🐙","🦑","🦐","🦀","🐡","🐠","🐬","🐳","🦈","🐊","🐅","🐆","🦓","🦍","🦧","🐘"];
+const emojiSelector = document.getElementById('emoji-selector');
+
+if (emojiSelector) {
+    EMOJIS.forEach(emoji => {
+        const el = document.createElement('div');
+        el.className = 'emoji-option';
+        el.innerText = emoji;
+        emojiSelector.appendChild(el);
+        
+        el.addEventListener('click', () => {
+            document.querySelectorAll('.emoji-option').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedEmoji = emoji;
+            document.getElementById('error-message').innerText = ''; 
+        });
     });
 }
 
 // ---------------------------------------------------------
 // Validation Menu
 // ---------------------------------------------------------
-joinBtn.onclick = () => {
+joinBtn.onclick = async () => {
     let pseudo = pseudoInput.value.trim();
     if (!pseudo) pseudo = "Anonyme";
     
-    // 1. Masquer l'écran d'accueil
-    loginScreen.style.display = 'none';
+    if (!selectedEmoji) {
+        document.getElementById('error-message').innerText = "Veuillez choisir un Émoji !";
+        return;
+    }
     
-    // 2. Afficher la zone de NippleJS (display block permet de reprendre sa vraie taile CSS vh/vw)
-    uiHeader.style.display = 'flex';
-    uiItem.style.display = 'flex';
-    joystickZone.style.display = 'block';
-
-    // 3. FORCE LE REFLOW : C'est ce qui oblige le layout synchronisé sur les navigateurs webkits (iOS/Android)
+    document.getElementById('error-message').innerText = ''; 
+    document.getElementById('player-pseudo').innerText = `${selectedEmoji} ${pseudo}`;
+    
+    try {
+        if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+            await document.documentElement.webkitRequestFullscreen();
+        }
+        if (screen.orientation && screen.orientation.lock) {
+            await screen.orientation.lock('landscape');
+        }
+    } catch (err) {
+        console.warn("Le mode paysage forcé n'est pas totalement supporté.");
+    }
+    
+    loginScreen.style.display = 'none';
+    gamepad.style.display = 'flex';
+    
     joystickZone.offsetHeight;
     
-    // 4. Initialisation saine (sans setTimeout bancal)
     initJoystick();
     
-    // 5. Validation serveur
-    socket.emit('register_controller', { pseudo: pseudo });
+    socket.emit('register_controller', { pseudo: pseudo, emoji: selectedEmoji });
 };
+
+socket.on('join_error', (message) => {
+    // Réaffiche l'écran de connexion si on l'avait caché
+    loginScreen.style.display = 'flex';
+    gamepad.style.display = 'none';
+    if (manager) manager.destroy();
+    
+    // Affiche le message d'erreur
+    document.getElementById('error-message').innerText = message;
+});
 
 socket.on('controller_registered', (data) => {
     console.log(`[Controller] Registré (ID: ${data.id})`);
@@ -98,48 +153,77 @@ socket.on('disconnect', () => {
 });
 
 socket.on('ui_update', (data) => {
-    if (scoreVal) scoreVal.innerText = data.score;
-    if (coinsVal) coinsVal.innerText = data.coins;
+    if (scoreDisplay) scoreDisplay.innerText = data.score;
+    if (coinsDisplay) coinsDisplay.innerText = data.coins;
+    if(data.rank && rankDisplay) rankDisplay.innerText = `Rang: #${data.rank}`;
     
     if (data.activeBuff) {
-        actionBtn.innerText = `${data.activeBuff}: ${data.buffRemaining}s`;
-        actionBtn.style.backgroundColor = '#FFD700'; 
-        actionBtn.style.color = '#000';
-        actionBtn.style.border = '2px solid #FFD700';
-        actionBtn.disabled = true;
+        bonusBtn.disabled = true;
     } else if (data.activeItem) {
-        actionBtn.innerText = "⚡ Activer " + data.activeItem;
-        actionBtn.classList.add('active');
-        actionBtn.style.backgroundColor = ''; 
-        actionBtn.style.color = '';
-        actionBtn.style.border = '';
-        actionBtn.disabled = false;
+        currentItemDuration = data.buffDurationMs || 10000;
+        let icon = "⚡";
+        if (data.activeItem === 'Aimant') icon = "🧲";
+        if (data.activeItem === 'Invincibilité') icon = "⭐";
+        if (data.activeItem === 'Fantôme') icon = "👻";
+        
+        document.getElementById('btn-icon').innerText = icon;
+        document.getElementById('btn-title').innerText = "ACTIVER";
+        document.getElementById('btn-subtitle').innerText = `${data.activeItem} (${currentItemDuration/1000}s)`;
+        
+        bonusBtn.disabled = false;
+        document.getElementById('btn-progress-bar').style.display = 'none';
+        
+        setTheme(data.activeItem);
     } else {
-        actionBtn.innerText = "Aucun Bonus";
-        actionBtn.classList.remove('active');
-        actionBtn.style.backgroundColor = ''; 
-        actionBtn.style.color = '';
-        actionBtn.style.border = '';
-        actionBtn.disabled = true;
+        document.getElementById('btn-icon').innerText = "❌";
+        document.getElementById('btn-title').innerText = "AUCUN";
+        document.getElementById('btn-subtitle').innerText = "Bonus";
+        bonusBtn.disabled = true;
+        document.getElementById('btn-progress-bar').style.display = 'none';
+        
+        setTheme('default');
     }
 });
 
-actionBtn.onclick = () => {
-    if (!actionBtn.disabled) {
+bonusBtn.ontouchstart = (e) => {
+    e.preventDefault(); 
+    if (!bonusBtn.disabled) {
         socket.emit('activate_bonus');
         if ("vibrate" in navigator) navigator.vibrate(200);
-        actionBtn.disabled = true;
-        actionBtn.innerText = "Activation...";
+        bonusBtn.disabled = true;
+        animateBonusGauge(currentItemDuration);
     }
+}
+
+function animateBonusGauge(durationMs) {
+    let startTime = Date.now();
+    const fill = document.getElementById('btn-progress-fill');
+    const bar = document.getElementById('btn-progress-bar');
+    if (bar) bar.style.display = 'block';
+    
+    function updateGauge() {
+        let elapsed = Date.now() - startTime;
+        let percent = Math.max(0, 100 - (elapsed / durationMs) * 100);
+        
+        if (fill) fill.style.width = percent + '%';
+        
+        if (percent > 0) {
+            requestAnimationFrame(updateGauge);
+        } else {
+            if (bar) bar.style.display = 'none';
+            setTheme('default');
+            document.getElementById('btn-icon').innerText = "❌";
+            document.getElementById('btn-title').innerText = "AUCUN";
+            document.getElementById('btn-subtitle').innerText = "Bonus";
+        }
+    }
+    updateGauge();
 }
 
 socket.on('you_died', () => {
     isMoving = false;
     if (manager) manager.destroy();
-    if (joystickZone) joystickZone.style.display = 'none';
-    
-    uiHeader.style.display = 'none';
-    uiItem.style.display = 'none';
+    gamepad.style.display = 'none';
     
     statusText.innerHTML = "<h2 style='margin:10px 0;'>💀 ÉLIMINÉ</h2><p style='color:#ccc; font-weight:normal;'>Mode spectateur actif</p>";
     statusText.style.color = "#FF5252";
@@ -149,10 +233,7 @@ socket.on('you_died', () => {
 socket.on('game_over', (data) => {
     isMoving = false;
     if (manager) manager.destroy();
-    if (joystickZone) joystickZone.style.display = 'none';
-    
-    uiHeader.style.display = 'none';
-    uiItem.style.display = 'none';
+    gamepad.style.display = 'none';
     
     if (data.winnerId === socket.id) {
         if ("vibrate" in navigator) navigator.vibrate([500, 200, 500]);
@@ -165,15 +246,11 @@ socket.on('game_over', (data) => {
 });
 
 socket.on('game_restart', () => {
-    uiHeader.style.display = 'flex';
-    uiItem.style.display = 'flex';
-    joystickZone.style.display = 'block';
+    loginScreen.style.display = 'flex';
+    gamepad.style.display = 'none';
+    if (manager) manager.destroy();
     
-    // De nouveau, forcer le Reflow avant l'initialisation après le restart automatique
-    joystickZone.offsetHeight;
-
-    initJoystick();
-    
-    statusText.innerHTML = "✅ Reprise ! Survis !";
-    statusText.style.color = "#4CAF50";
+    document.getElementById('error-message').innerText = ''; 
+    statusText.innerText = "⏳ En attente de connexion...";
+    statusText.style.color = "#ccc";
 });

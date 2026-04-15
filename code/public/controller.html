@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Emoji Slither - Manette</title>
+    <link rel="icon" href="/logo-transparent.png" type="image/png">
     <style>
         body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: #1a1432; color: #ffffff;
+            margin: 0; padding: 0; width: 100vw; height: 100dvh;
+            background-color: #050505; color: #ffffff;
             font-family: 'Inter', Roboto, Arial, sans-serif;
             overflow: hidden; display: flex; flex-direction: column;
             align-items: center; justify-content: space-between;
-            touch-action: none; user-select: none;
+            touch-action: none; user-select: none; position: fixed;
         }
 
         #loginScreen {
@@ -30,52 +31,94 @@
         #pseudoInput:focus {
             outline: none; border-color: #9c88ff; box-shadow: 0 0 15px rgba(156, 136, 255, 0.5);
         }
+        .emoji-option {
+            font-size: 32px; cursor: pointer; padding: 5px; border-radius: 10px; border: 2px solid transparent; transition: all 0.2s;
+        }
+        .emoji-option:hover { background-color: rgba(255,255,255,0.1); }
+        .emoji-option.selected {
+            background-color: rgba(156, 136, 255, 0.4); border: 2px solid #9c88ff !important;
+        }
         #joinBtn {
-            padding: 15px 30px; font-size: 18px; border-radius: 30px; border: none; /* iOS fix */
+            padding: 15px 30px; font-size: 18px; border-radius: 30px; border: none;
             background-color: #4CAF50; color: white; font-weight: bold;
             box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4); cursor: pointer; transition: 0.2s;
         }
         #joinBtn:active { transform: scale(0.95); }
 
-        /* HEADER UI */
-        .header {
-            width: 100%; padding: 15px 0; background-color: rgba(45, 37, 80, 0.5);
-            border-bottom: 2px solid #2d2550; display: none; 
-            justify-content: space-around; align-items: center; font-size: 20px; font-weight: bold;
-            position: relative; z-index: 20; /* Plus élevé que le joystick */
+        :root {
+            --theme-color: #555;
+            --theme-glow: rgba(85, 85, 85, 0.4);
         }
-        .stat-box { display: flex; align-items: center; gap: 10px; }
+        .theme-default { --theme-color: #555; --theme-glow: rgba(85, 85, 85, 0.4); }
+        .theme-invincible { --theme-color: #b752ff; --theme-glow: rgba(183, 82, 255, 0.6); }
+        .theme-aimant { --theme-color: #4caf50; --theme-glow: rgba(76, 175, 80, 0.6); }
+        .theme-fantome { --theme-color: #00bcd4; --theme-glow: rgba(0, 188, 212, 0.6); }
 
-        .item-container {
-            width: 100%; display: none; justify-content: center; padding: 20px 0;
-            position: relative; z-index: 20; /* Plus élevé que le joystick */
-            pointer-events: none; /* Laisse passer les taps ratés par sécurité */
+        #gamepad {
+            position: fixed; top: 0; left: 0;
+            width: 100vw; height: 100dvh;
+            background: #0f0f13; display: none; align-items: center; justify-content: center;
+            z-index: 100;
         }
-
-        #actionBtn {
-            padding: 15px 40px; font-size: 18px; border-radius: 30px; border: 2px solid #3d3560;
-            background-color: #1a1a2e; color: #666; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transition: all 0.2s ease; pointer-events: auto; /* Active les taps uniquement sur le btn */
+        #game-card {
+            width: 96%; height: 90%;
+            border-radius: 20px; background: #111; border: 2px solid var(--theme-color);
+            box-shadow: 0 0 20px var(--theme-glow), inset 0 0 20px var(--theme-glow);
+            display: flex; flex-direction: column; position: relative; padding: 15px; box-sizing: border-box;
+            transition: all 0.3s ease;
         }
-
-        #actionBtn.active {
-            background-color: #9c88ff; color: white; border: 2px solid #fff;
-            box-shadow: 0 0 15px #9c88ff; text-shadow: 0px 2px 5px rgba(0,0,0,0.5);
+        #top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            color: white; font-family: 'Inter', sans-serif; font-weight: 500; font-size: 16px;
+            padding: 0 20px; z-index: 10;
         }
+        #game-content {
+            display: flex; flex: 1; justify-content: space-between; align-items: center; position: relative;
+        }
+        #joystick-wrapper {
+            position: relative; width: 220px; height: 220px;
+            display: flex; align-items: center; justify-content: center; margin-left: 30px; pointer-events: none;
+        }
+        .ring {
+            position: absolute; border-radius: 50%;
+            border: 2px solid var(--theme-color); box-shadow: 0 0 15px var(--theme-glow);
+            transition: all 0.3s ease;
+        }
+        .outer-ring { width: 100%; height: 100%; border-width: 4px; }
+        .middle-ring { width: 75%; height: 75%; border-width: 2px; opacity: 0.6; }
+        .inner-ring { width: 45%; height: 45%; border: 2px dotted var(--theme-color); opacity: 0.3; }
 
-        /* 
-           CORRECTION CRUCIALE : Le Joystick prend tout l'écran
-           pour capter le doigt n'importe où et calculer correctement le centre de nipplejs 
-        */
-        #joystick-zone {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 10;
-            touch-action: none;
-            display: none;
+        #joystick-half {
+            position: absolute; left: 0; top: 0; width: 50%; height: 100%;
+            z-index: 100; touch-action: none;
+        }
+        #action-wrapper {
+            position: relative; z-index: 110; margin-right: 40px;
+        }
+        .neon-btn {
+            width: 260px; height: 90px;
+            background: transparent; border: 3px solid var(--theme-color); border-radius: 15px;
+            box-shadow: 0 0 15px var(--theme-glow), inset 0 0 10px var(--theme-glow);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: white; padding: 10px; position: relative; overflow: hidden; outline: none;
+            transition: all 0.3s ease;
+        }
+        .neon-btn:active { transform: scale(0.95); }
+        .btn-content {
+            display: flex; align-items: center; gap: 15px; z-index: 2; width: 100%; padding-left: 10px;
+        }
+        #btn-icon { font-size: 32px; filter: drop-shadow(0 0 5px var(--theme-color)); }
+        .btn-text { display: flex; flex-direction: column; text-align: left; }
+        #btn-title { font-size: 20px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;}
+        #btn-subtitle { font-size: 14px; color: #ccc; }
+        #btn-progress-bar {
+            position: absolute; bottom: 8px; left: 15px; right: 15px; height: 6px;
+            background: rgba(255,255,255,0.1); border-radius: 3px; display: none;
+        }
+        #btn-progress-fill {
+            height: 100%; width: 100%; background: var(--theme-color);
+            box-shadow: 0 0 10px var(--theme-color); border-radius: 3px;
+            transform-origin: left;
         }
 
         .status {
@@ -86,23 +129,49 @@
 </head>
 <body>
     <div id="loginScreen">
-        <h1>Emoji Slither</h1>
+        <img src="/logo-transparent.png" alt="Emoji Slither Logo" style="width: 250px; max-width: 80%; margin-bottom: 20px; filter: drop-shadow(0 0 15px rgba(0,0,0,0.6));">
         <input type="text" id="pseudoInput" maxlength="10" placeholder="Ton Pseudo">
+        <div id="emoji-selector" style="margin-bottom: 25px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; width: 95%; max-width: 400px; max-height: 180px; overflow-y: auto; padding-right: 5px;">
+        </div>
         <button id="joinBtn">Rejoindre le Battle Royale</button>
+        <div id="error-message" style="color: #ff4444; font-weight: bold; margin-top: 15px; text-align: center; min-height: 20px;"></div>
     </div>
 
-    <!-- UI Z-Index > 10 -->
-    <div class="header" id="uiHeader">
-        <div class="stat-box">🥇 <span id="scoreVal">3</span></div>
-        <div class="stat-box">🟡 <span id="coinsVal">0</span></div>
+    <div id="gamepad">
+        <div id="game-card" class="theme-default">
+            <div id="top-bar">
+                <span id="player-pseudo">Anonyme</span>
+                <span>Score: <span id="score-display">3</span></span>
+                <span id="rank-display">Rang: --</span>
+                <span>Pièces: <span id="coins-display">0</span> 🪙</span>
+            </div>
+            
+            <div id="game-content">
+                <div id="joystick-wrapper">
+                    <div class="ring outer-ring"></div>
+                    <div class="ring middle-ring"></div>
+                    <div class="ring inner-ring"></div>
+                </div>
+                
+                <div id="joystick-half"></div>
+                
+                <div id="action-wrapper">
+                    <button id="bonus-btn" class="neon-btn" disabled>
+                        <div class="btn-content">
+                            <span id="btn-icon">❌</span>
+                            <div class="btn-text">
+                                <strong id="btn-title">AUCUN</strong>
+                                <span id="btn-subtitle">Bonus</span>
+                            </div>
+                        </div>
+                        <div id="btn-progress-bar">
+                            <div id="btn-progress-fill"></div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
-    
-    <div class="item-container" id="uiItem">
-        <button id="actionBtn" disabled>Aucun Bonus</button>
-    </div>
-    
-    <!-- Joystick Z-Index 10 -->
-    <div id="joystick-zone"></div>
     
     <div class="status" id="statusText">⏳ En attente de connexion...</div>
 
