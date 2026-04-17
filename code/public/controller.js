@@ -38,7 +38,7 @@ let currentForce = 0;
 let isMoving = false;
 let manager = null;
 
-const SEND_TICK_RATE = 20;
+const SEND_TICK_RATE = 30; // 33ms entre chaque envoi → overshoot max 5px (OK avec zone tampon 20px)
 setInterval(() => {
     if (isMoving && currentForce > 0) {
         socket.emit('controller_input', {

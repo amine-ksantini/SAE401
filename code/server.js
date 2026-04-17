@@ -341,7 +341,8 @@ function updateGameState(dt) {
             player.x = cX;
             player.y = cY;
 
-            if (player.x <= 5 || player.x >= MAP_WIDTH - 5 || player.y <= 5 || player.y >= MAP_HEIGHT - 5) {
+            // Zone tampon élargie à 20px pour compenser le délai réseau (50ms × 150px/s = 7.5px max overshoot)
+            if (player.x <= 20 || player.x >= MAP_WIDTH - 20 || player.y <= 20 || player.y >= MAP_HEIGHT - 20) {
                 if (player.activeBuff !== 'Invincibilité') playersToKill.push({ id: socketId, killer: 'Le Mur' });
                 continue;
             }
