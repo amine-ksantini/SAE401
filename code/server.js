@@ -40,6 +40,7 @@ const BODY_RADIUS = 20;
 const RECORD_DIST = 10;
 const RECORD_DIST_SQ = RECORD_DIST * RECORD_DIST;
 const HISTORY_MULTIPLIER = 3;
+const MAX_HISTORY_TO_SEND = 150; // Points envoyés à l'arène ET utilisés pour la hitbox
 
 let orbIdCounter = 0; let coinIdCounter = 0; let chestIdCounter = 0;
 
@@ -362,7 +363,9 @@ function updateGameState(dt) {
 
                 const collisionBody = (HEAD_RADIUS + BODY_RADIUS) * (HEAD_RADIUS + BODY_RADIUS);
                 let hitBody = false;
-                for (let i = HISTORY_MULTIPLIER; i < other.history.length; i += HISTORY_MULTIPLIER) {
+                // Limite au même nombre de points que l'arène affiche (hitbox = ce qui est visible)
+                const checkLen = Math.min(other.history.length, MAX_HISTORY_TO_SEND);
+                for (let i = HISTORY_MULTIPLIER; i < checkLen; i += HISTORY_MULTIPLIER) {
                     if (getDistanceSq(player.x, player.y, other.history[i].x, other.history[i].y) < collisionBody) {
                         if (player.activeBuff !== 'Invincibilité') playersToKill.push({ id: socketId, killer: otherId });
                         hitBody = true; break;
@@ -448,8 +451,8 @@ function gameLoop() {
     if (broadcastCounter >= 2) {
         broadcastCounter = 0;
         if (gameState.arenaId) {
-            // Fix 3: envoyer l'historique tronqué pour ne pas saturer le réseau avec les gros serpents
-            const MAX_HISTORY_TO_SEND = 150;
+            // Fix 3: envoyer l'historique tronqué (MAX_HISTORY_TO_SEND = 150) pour ne pas saturer le réseau
+            // IMPORTANT: la hitbox serveur utilise aussi cette même limite (voir collision corps)
             const playersPayload = {};
             for (const id in gameState.players) {
                 const p = gameState.players[id];
