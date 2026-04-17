@@ -38,7 +38,7 @@ let currentForce = 0;
 let isMoving = false;
 let manager = null;
 
-const SEND_TICK_RATE = 60;
+const SEND_TICK_RATE = 20;
 setInterval(() => {
     if (isMoving && currentForce > 0) {
         socket.emit('controller_input', {

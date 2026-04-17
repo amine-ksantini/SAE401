@@ -420,6 +420,7 @@ function updateGameState(dt) {
 }
 
 let tickCounter = 0;
+let broadcastCounter = 0;
 
 function gameLoop() {
     const currentTime = Date.now();
@@ -428,13 +429,17 @@ function gameLoop() {
 
     updateGameState(deltaTime);
 
-    if (gameState.arenaId) {
-        io.to(gameState.arenaId).emit('gameState_update', {
-            players: gameState.players,
-            orbs: gameState.orbs,
-            coins: gameState.coins,
-            chests: gameState.chests
-        });
+    broadcastCounter++;
+    if (broadcastCounter >= 2) {
+        broadcastCounter = 0;
+        if (gameState.arenaId) {
+            io.to(gameState.arenaId).emit('gameState_update', {
+                players: gameState.players,
+                orbs: gameState.orbs,
+                coins: gameState.coins,
+                chests: gameState.chests
+            });
+        }
     }
 
     tickCounter++;
