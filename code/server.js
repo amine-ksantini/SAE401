@@ -88,6 +88,7 @@ function killPlayer(socketId, killerName) {
     const lootCount = Math.max(1, Math.floor(p.score * (Math.random() * 0.2 + 0.3)));
 
     for (let i = 0; i < lootCount; i++) {
+        if (gameState.orbs.length >= MAX_ORBS) break; // Fix 1: Cap loot, évite l'explosion mémoire
         const angle = Math.random() * Math.PI * 2;
         const distance = Math.random() * 60;
 
@@ -150,6 +151,7 @@ io.on('connection', (socket) => {
             activeBuff: null,
             buffEndTime: 0,
             history: [],
+            pendingSounds: [], // Fix 2: file d'attente des sons
             isDead: isGameFinished
         };
 
@@ -373,7 +375,7 @@ function updateGameState(dt) {
                 if (getDistanceSq(player.x, player.y, gameState.orbs[i].x, gameState.orbs[i].y) < limOrbs) {
                     gameState.orbs.splice(i, 1);
                     player.score += 1;
-                    io.to(socketId).emit('play_local_sound', 'orb');
+                    player.pendingSounds.push('orb'); // Fix 2: file d'attente au lieu de emit immédiat
                     setTimeout(spawnOrb, 3000);
                 }
             }
@@ -383,7 +385,7 @@ function updateGameState(dt) {
                 if (getDistanceSq(player.x, player.y, gameState.coins[i].x, gameState.coins[i].y) < limCoins) {
                     gameState.coins.splice(i, 1);
                     player.coins += 1;
-                    io.to(socketId).emit('play_local_sound', 'coin');
+                    player.pendingSounds.push('coin'); // Fix 2: file d'attente au lieu de emit immédiat
                     setTimeout(spawnCoin, 5000 + Math.random() * 2000);
                 }
             }
@@ -429,12 +431,38 @@ function gameLoop() {
 
     updateGameState(deltaTime);
 
+    // Fix 2: vider la file des sons une fois par tick (évite N emits séparés)
+    for (const id in gameState.players) {
+        const p = gameState.players[id];
+        if (p.pendingSounds && p.pendingSounds.length > 0) {
+            const uniqueSounds = [...new Set(p.pendingSounds)];
+            for (const sound of uniqueSounds) {
+                io.to(id).emit('play_local_sound', sound);
+            }
+            p.pendingSounds = [];
+        }
+    }
+
     broadcastCounter++;
     if (broadcastCounter >= 2) {
         broadcastCounter = 0;
         if (gameState.arenaId) {
+            // Fix 3: envoyer l'historique tronqué pour ne pas saturer le réseau avec les gros serpents
+            const MAX_HISTORY_TO_SEND = 150;
+            const playersPayload = {};
+            for (const id in gameState.players) {
+                const p = gameState.players[id];
+                playersPayload[id] = {
+                    id: p.id, pseudo: p.pseudo, emoji: p.emoji, color: p.color,
+                    x: p.x, y: p.y, angle: p.angle, score: p.score, coins: p.coins,
+                    activeItem: p.activeItem, activeBuff: p.activeBuff, isDead: p.isDead,
+                    history: p.history.length > MAX_HISTORY_TO_SEND
+                        ? p.history.slice(0, MAX_HISTORY_TO_SEND)
+                        : p.history
+                };
+            }
             io.to(gameState.arenaId).emit('gameState_update', {
-                players: gameState.players,
+                players: playersPayload,
                 orbs: gameState.orbs,
                 coins: gameState.coins,
                 chests: gameState.chests
